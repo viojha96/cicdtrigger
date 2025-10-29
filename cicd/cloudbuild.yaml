@@ -10,16 +10,16 @@ steps:
        apt-get update && apt-get install -y jq curl
        
        echo "Fetching latest app config..."
-       gcloud alpha design-center spaces applications describe test-application-cicd --space=test-space --project=$PROJECT_ID --location=us-central1   --format="json(componentParameters)" | jq '.componentParameters | map(del(.state, .componentParameterSchema))' > component_parameters.json
+       gcloud alpha design-center spaces applications describe viojha-test-app --space=managed-space --project=$PROJECT_ID --location=us-central1   --format="json(componentParameters)" | jq '.componentParameters | map(del(.state, .componentParameterSchema))' > component_parameters.json
               
        echo "Updating frontend CR image....."
-       jq 'map(if .parameters[] | select(.key == "service_name").value == "frontend-service" then .parameters |= map(if .key == "containers" then .value |= map(.container_image = "'"${_IMAGE_NAME}"'") else . end) else . end)' component_parameters.json > temp.json && mv temp.json component_parameters.json
+       jq 'map(if .parameters[] | select(.key == "service_name").value == "fc-001" then .parameters |= map(if .key == "containers" then .value |= map(.container_image = "'"${_IMAGE_NAME}"'") else . end) else . end)' component_parameters.json > temp.json && mv temp.json component_parameters.json
        
-       gcloud alpha design-center spaces applications update test-application-cicd   --space=test-space --project=$PROJECT_ID --location=us-central1   --component-parameters=component_parameters.json
+       gcloud alpha design-center spaces applications update viojha-test-app   --space=managed-space --project=$PROJECT_ID --location=us-central1   --component-parameters=component_parameters.json
               
        echo "Deploying application....."
        
-       gcloud alpha design-center spaces applications deploy test-application-cicd --space=test-space --project=$PROJECT_ID --location=us-central1 --async
+       gcloud alpha design-center spaces applications deploy viojha-test-app --space=managed-space --project=$PROJECT_ID --location=us-central1 --async
 
        
        rm -f component_parameters.json
