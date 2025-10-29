@@ -1,6 +1,6 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/$PROJECT_ID/adc-cicd/adc-demo:latest', '--build-arg', 'IMAGE_TAG=latest', '-f', 'adc-demo/Dockerfile', '.']
+  args: ['build', '-t', 'gcr.io/$PROJECT_ID/adc-cicd/adc-demo:latest', '--build-arg', 'IMAGE_TAG=latest', '-f', 'cicd/Dockerfile', '.']
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: bash
   args:
