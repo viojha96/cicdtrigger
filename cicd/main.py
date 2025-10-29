@@ -9,7 +9,7 @@ app = Flask(__name__)
 def hello_world():
     """Example Hello World route."""
     image_tag = os.getenv("APP_IMAGE_TAG", "unknown")
-    return f"Hello, world! I'm running an updated app version: {image_tag}"
+    return f"Hello, world! I'm running an updated app version viojha: {image_tag}"
 
 
 if __name__ == "__main__":
