@@ -6,13 +6,14 @@ substitutions:
   _TEMPLATE_NAME: 'app-template-4'
 
 steps:
-# 1. Create, Verify, Preview, and Deploy Application from Templates.
+# 1. Create, Verify, Preview, Print Assessment, and Deploy Application from Templates.
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: bash
   timeout: 1800s # Increased timeout to accommodate polling
   args:
     - -c
     - |
+      # ... (Create Application, Verify Application steps as before) ...
       echo "Fetching latest revision for template ${_TEMPLATE_NAME}..."
       LATEST_REVISION_URI=$$(gcloud design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
       if [ -z "$$LATEST_REVISION_URI" ]; then
@@ -44,6 +45,9 @@ steps:
       fi
       echo "Application ${_APP_NAME} create command issued."
 
+      echo "Waiting for application to be ready..."
+      sleep 10 # Wait 10 seconds for propagation
+
       # Verify application creation
       gcloud design-center spaces applications describe ${_APP_NAME} \
         --space=${_SPACE_NAME} \
@@ -58,7 +62,6 @@ steps:
       SERVICE_ACCOUNT_NAME="projects/$PROJECT_ID/serviceAccounts/${_DEPLOY_SA_EMAIL}"
 
       echo "Starting Preview for application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
-      # Capture stderr from the preview command
       PREVIEW_STDERR=$$(gcloud design-center spaces applications preview ${_APP_NAME} \
         --space=${_SPACE_NAME} \
         --project=$PROJECT_ID \
@@ -76,7 +79,6 @@ steps:
          exit 1
       fi
 
-      # Extract the operation name from the stderr message
       PREVIEW_LRO=$$(echo "$$PREVIEW_STDERR" | grep -o 'projects/[^ ]*operations/[^ ]*' | head -n 1 | sed 's/]$$//')
 
       if [ -z "$$PREVIEW_LRO" ]; then
@@ -89,7 +91,7 @@ steps:
       COUNTER=0
       MAX_RETRIES=60
       SLEEP_DURATION=15
-      IS_DONE="false" # Initialize IS_DONE
+      IS_DONE="false"
 
       while [ $$COUNTER -lt $$MAX_RETRIES ]; do
         OPERATION_OUTPUT=$$(gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID --format=json 2>&1)
@@ -101,10 +103,6 @@ steps:
           COUNTER=$$(expr $$COUNTER + 1)
           continue
         fi
-
-        # echo "--- Operation Status (Attempt $$COUNTER) ---"
-        # echo "$$OPERATION_OUTPUT"
-        # echo "---------------------------------------"
 
         if echo "$$OPERATION_OUTPUT" | grep -q '"done": true'; then
           echo "Preview operation $$PREVIEW_LRO finished."
@@ -123,14 +121,24 @@ steps:
         exit 1
       fi
 
-      # Check for errors in the completed operation
-      PREVIEW_ERROR=$$(gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID --format="value(error.message)")
+      LATEST_OPERATION_OUTPUT=$$(gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID --format=json)
+      PREVIEW_ERROR=$$(echo "$$LATEST_OPERATION_OUTPUT" | grep '"code":' | head -n 1)
       if [ -n "$$PREVIEW_ERROR" ]; then
-        echo "ERROR: Preview operation $$PREVIEW_LRO failed: $$PREVIEW_ERROR"
-        gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID
+        echo "ERROR: Preview operation $$PREVIEW_LRO failed:"
+        echo "$$LATEST_OPERATION_OUTPUT"
         exit 1
       fi
       echo "Preview operation successful."
+
+      echo "--- Application Assessment Report ---"
+      ASSESSMENT_REPORT=$$(echo "$$LATEST_OPERATION_OUTPUT" | jq '.response.assessmentReport')
+      if [ -z "$$ASSESSMENT_REPORT" ] || [ "$$ASSESSMENT_REPORT" = "null" ]; then
+        echo "WARNING: Could not extract assessmentReport from operation response."
+        echo "$$LATEST_OPERATION_OUTPUT"
+      else
+        echo "$$ASSESSMENT_REPORT"
+      fi
+      echo "-------------------------------------"
 
       echo "Deploying application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
       gcloud design-center spaces applications deploy ${_APP_NAME} \
