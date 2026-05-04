@@ -1,8 +1,8 @@
 substitutions:
-  _APP_NAME: 'test-application-cicd-025' # Incremented version
+  _APP_NAME: 'test-application-cicd-026' # Incremented version
   _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
-  _DEPLOY_SA_EMAIL: <REDACTED_PII>'
+  _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
   _TEMPLATE_NAME: 'app-template-1'
 
 steps:
@@ -44,11 +44,14 @@ steps:
       fi
       echo "Application ${_APP_NAME} created."
 
-      echo "Starting Preview for application ${_APP_NAME}..."
+      SERVICE_ACCOUNT_NAME="projects/$PROJECT_ID/serviceAccounts/${_DEPLOY_SA_EMAIL}"
+
+      echo "Starting Preview for application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
       PREVIEW_LRO=$$(gcloud design-center spaces applications preview ${_APP_NAME} \
         --space=${_SPACE_NAME} \
         --project=$PROJECT_ID \
         --location=${_LOCATION} \
+        --service-account="$$SERVICE_ACCOUNT_NAME" \
         --format="value(name)")
 
       if [ $$? -ne 0 ]; then
@@ -87,8 +90,7 @@ steps:
       fi
       echo "Preview operation successful."
 
-      echo "Deploying application ${_APP_NAME}..."
-      SERVICE_ACCOUNT_NAME="projects/$PROJECT_ID/serviceAccounts/${_DEPLOY_SA_EMAIL}"
+      echo "Deploying application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
       gcloud design-center spaces applications deploy ${_APP_NAME} \
         --space=${_SPACE_NAME} \
         --project=$PROJECT_ID \
