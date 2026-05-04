@@ -6,7 +6,7 @@ substitutions:
   _TEMPLATE_NAME: 'tt-tmpl-demo'
 
 steps:
-# 1. Create and Deploy Application from Templates
+# 1. Create and Deploy Application from Templates.
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: bash
   args:
