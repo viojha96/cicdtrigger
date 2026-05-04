@@ -28,7 +28,7 @@ steps:
       # fi
       # echo "Latest Revision ID: $$LATEST_REVISION"
             # Attempt to get the latest revision URI, capturing stderr
-      GCLOUD_OUTPUT=$$(gcloud alpha design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)" 2>&1)
+      GCLOUD_OUTPUT=$$(gcloud design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)" 2>&1)
       GCLOUD_EXIT_CODE=$$?
 
       echo "gcloud exit code: $$GCLOUD_EXIT_CODE"
