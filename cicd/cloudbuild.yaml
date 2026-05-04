@@ -131,8 +131,8 @@ steps:
       echo "Preview operation successful."
 
       echo "--- Application Assessment Report ---"
-      ASSESSMENT_REPORT=$$(echo "$$LATEST_OPERATION_OUTPUT" | jq '.response.assessmentReport')
-      if [ -z "$$ASSESSMENT_REPORT" ] || [ "$$ASSESSMENT_REPORT" = "null" ]; then
+      ASSESSMENT_REPORT=$$(echo "$$LATEST_OPERATION_OUTPUT" | awk '/"assessmentReport": {/,/^[ ]+}/{print}')
+      if [ -z "$$ASSESSMENT_REPORT" ]; then
         echo "WARNING: Could not extract assessmentReport from operation response."
         echo "$$LATEST_OPERATION_OUTPUT"
       else
