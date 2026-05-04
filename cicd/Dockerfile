@@ -14,7 +14,7 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copy the current directory contents into the container at /app
-COPY cicd/main.py /app/main.py
+COPY main.py /app/main.py
 
 # Run main.py when the container launches
 CMD ["python", "main.py"]
