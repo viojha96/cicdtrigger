@@ -45,8 +45,7 @@ steps:
       echo "Application ${_APP_NAME} created."
 
       SERVICE_ACCOUNT_NAME="projects/$PROJECT_ID/serviceAccounts/${_DEPLOY_SA_EMAIL}"
-
-     echo "Starting Preview for application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
+      echo "Starting Preview for application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
       # Capture the full output of the preview command
       gcloud design-center spaces applications preview ${_APP_NAME} \
         --space=${_SPACE_NAME} \
