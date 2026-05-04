@@ -1,5 +1,5 @@
 substitutions:
-  _APP_NAME: 'test-application-cicd-034' # Incremented version
+  _APP_NAME: 'test-application-cicd-035' # Incremented version
   _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
   _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
@@ -13,7 +13,7 @@ steps:
   args:
     - -c
     - |
-      # ... (Create Application, Verify Application steps as before) ...
+      # ... (Create Application, Verify Application, Preview, Wait for LRO steps as before) ...
       echo "Fetching latest revision for template ${_TEMPLATE_NAME}..."
       LATEST_REVISION_URI=$$(gcloud design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
       if [ -z "$$LATEST_REVISION_URI" ]; then
@@ -46,9 +46,8 @@ steps:
       echo "Application ${_APP_NAME} create command issued."
 
       echo "Waiting for application to be ready..."
-      sleep 10 # Wait 10 seconds for propagation
+      sleep 10
 
-      # Verify application creation
       gcloud design-center spaces applications describe ${_APP_NAME} \
         --space=${_SPACE_NAME} \
         --project=$PROJECT_ID \
@@ -131,7 +130,8 @@ steps:
       echo "Preview operation successful."
 
       echo "--- Application Assessment Report ---"
-      ASSESSMENT_REPORT=$$(echo "$$LATEST_OPERATION_OUTPUT" | awk '/"assessmentReport": {/,/^[ ]+}/{print}')
+      # Extract the assessmentReport block using sed
+      ASSESSMENT_REPORT=$$(echo "$$LATEST_OPERATION_OUTPUT" | sed -n '/"assessmentReport": {/,/^[ ]*},$$/p' | sed '$$d')
       if [ -z "$$ASSESSMENT_REPORT" ]; then
         echo "WARNING: Could not extract assessmentReport from operation response."
         echo "$$LATEST_OPERATION_OUTPUT"
