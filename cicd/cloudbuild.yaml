@@ -12,7 +12,7 @@ steps:
   args:
     - -c
     - |
-      echo "Fetching latest revision for template ${_TEMPLATE_NAME}..."
+      echo "Fetching latest revision for template ${_TEMPLATE_NAME} in Project ${PROJECT_ID}..."
       LATEST_REVISION_URI=$(gcloud alpha design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
       if [ -z "$$LATEST_REVISION_URI" ]; then
         echo "Failed to get latest revision URI for template ${_TEMPLATE_NAME}"
