@@ -1,31 +1,59 @@
+substitutions:
+  _APP_NAME: 'test-application-cicd-019'
+  _SPACE_NAME: 'managed-space'
+  _LOCATION: 'us-central1'
+  _DEPLOY_SA_EMAIL: 'to-deploy-us-c1@google-mpf-92896903834.iam.gserviceaccount.com'
+  _TEMPLATE_NAME: 'tt-tmpl-demo'
+
 steps:
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/$PROJECT_ID/adc-cicd/adc-demo:latest', '--build-arg', 'IMAGE_TAG=latest', '-f', 'cicd/Dockerfile', '.']
+# 1. Create and Deploy Application from Templates
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: bash
   args:
-      - -c
-      - |
-       echo "Updating apt-get and installing jq..."
-       apt-get update && apt-get install -y jq curl
-       
-       echo "Fetching latest app config..."
-       gcloud alpha design-center spaces applications describe viojha-test-app --space=managed-space --project=$PROJECT_ID --location=us-central1   --format="json(componentParameters)" | jq '.componentParameters | map(del(.state, .componentParameterSchema))' > component_parameters.json
-              
-       echo "Updating frontend CR image....."
-       jq 'map(if .parameters[] | select(.key == "service_name").value == "fc-001" then .parameters |= map(if .key == "containers" then .value |= map(.container_image = "'"${_IMAGE_NAME}"'") else . end) else . end)' component_parameters.json > temp.json && mv temp.json component_parameters.json
-       
-       gcloud alpha design-center spaces applications update viojha-test-app   --space=managed-space --project=$PROJECT_ID --location=us-central1   --component-parameters=component_parameters.json
-              
-       echo "Deploying application....."
-       
-       gcloud alpha design-center spaces applications deploy viojha-test-app --space=managed-space --project=$PROJECT_ID --location=us-central1 --async
+    - -c
+    - |
+      echo "Fetching latest revision for template ${_TEMPLATE_NAME}..."
+      LATEST_REVISION_URI=$(gcloud alpha design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
+      if [ -z "$$LATEST_REVISION_URI" ]; then
+        echo "Failed to get latest revision URI for template ${_TEMPLATE_NAME}"
+        exit 1
+      fi
+      echo "Latest Revision URI: $$LATEST_REVISION_URI"
 
-       
-       rm -f component_parameters.json
-images: ['${_IMAGE_NAME}']
-substitutions:
-    _IMAGE_NAME: 'gcr.io/${PROJECT_ID}/adc-cicd/adc-demo:latest'
+      # Extract the revision ID from the full URI
+      LATEST_REVISION=$(basename $$LATEST_REVISION_URI)
+      if [ -z "$$LATEST_REVISION" ]; then
+        echo "Failed to extract revision ID from URI: $$LATEST_REVISION_URI"
+        exit 1
+      fi
+      echo "Latest Revision ID: $$LATEST_REVISION"
+
+      # Construct the full URI for the source application template revision
+      TEMPLATE_REVISION_URI="projects/$PROJECT_ID/locations/${_LOCATION}/spaces/${_SPACE_NAME}/applicationTemplates/${_TEMPLATE_NAME}/revisions/$$LATEST_REVISION"
+
+      echo "Creating application ${_APP_NAME} from template revision: $$TEMPLATE_REVISION_URI..."
+      gcloud alpha design-center spaces applications create ${_APP_NAME} \
+        --space=${_SPACE_NAME} \
+        --project=$PROJECT_ID \
+        --location=${_LOCATION} \
+        --source-application-template-revision="$$TEMPLATE_REVISION_URI" \
+        --scope-type=global
+
+      # Check if the create command was successful
+      if [ $$? -ne 0 ]; then
+        echo "Failed to create application ${_APP_NAME}"
+        exit 1
+      fi
+
+      echo "Deploying application ${_APP_NAME}..."
+      SERVICE_ACCOUNT_NAME="projects/$PROJECT_ID/serviceAccounts/${_DEPLOY_SA_EMAIL}"
+      gcloud alpha design-center spaces applications deploy ${_APP_NAME} \
+        --space=${_SPACE_NAME} \
+        --project=$PROJECT_ID \
+        --location=${_LOCATION} \
+        --service-account="$$SERVICE_ACCOUNT_NAME" \
+        --async
+
 options:
   logging: CLOUD_LOGGING_ONLY
   dynamicSubstitutions: true
