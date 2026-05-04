@@ -6,19 +6,59 @@ substitutions:
   _TEMPLATE_NAME: 'app-template-4'
 
 steps:
-# 1. Create, Preview, and Deploy Application from Templates.
+# 1. Create, Verify, Preview, and Deploy Application from Templates.
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: bash
   timeout: 1800s # Increased timeout to accommodate polling
   args:
     - -c
     - |
-      # ... (application creation steps as before) ...
-      echo "Application ${_APP_NAME} created."
+      echo "Fetching latest revision for template ${_TEMPLATE_NAME}..."
+      LATEST_REVISION_URI=$$(gcloud design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
+      if [ -z "$$LATEST_REVISION_URI" ]; then
+        echo "Failed to get latest revision URI for template ${_TEMPLATE_NAME}"
+        exit 1
+      fi
+      echo "Latest Revision URI: $$LATEST_REVISION_URI"
+
+      LATEST_REVISION=$$(basename $$LATEST_REVISION_URI)
+      if [ -z "$$LATEST_REVISION" ]; then
+        echo "Failed to extract revision ID from URI: $$LATEST_REVISION_URI"
+        exit 1
+      fi
+      echo "Latest Revision ID: $$LATEST_REVISION"
+
+      TEMPLATE_REVISION_URI="projects/$PROJECT_ID/locations/${_LOCATION}/spaces/${_SPACE_NAME}/applicationTemplates/${_TEMPLATE_NAME}/revisions/$$LATEST_REVISION"
+
+      echo "Creating application ${_APP_NAME} from template revision: $$TEMPLATE_REVISION_URI..."
+      gcloud design-center spaces applications create ${_APP_NAME} \
+        --space=${_SPACE_NAME} \
+        --project=$PROJECT_ID \
+        --location=${_LOCATION} \
+        --source-application-template-revision="$$TEMPLATE_REVISION_URI" \
+        --scope-type=global
+
+      if [ $$? -ne 0 ]; then
+        echo "Failed to create application ${_APP_NAME}"
+        exit 1
+      fi
+      echo "Application ${_APP_NAME} create command issued."
+
+      # Verify application creation
+      gcloud design-center spaces applications describe ${_APP_NAME} \
+        --space=${_SPACE_NAME} \
+        --project=$PROJECT_ID \
+        --location=${_LOCATION}
+      if [ $$? -ne 0 ]; then
+        echo "ERROR: Application ${_APP_NAME} not found after creation."
+        exit 1
+      fi
+      echo "Application ${_APP_NAME} verified."
 
       SERVICE_ACCOUNT_NAME="projects/$PROJECT_ID/serviceAccounts/${_DEPLOY_SA_EMAIL}"
 
       echo "Starting Preview for application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
+      # Capture stderr from the preview command
       PREVIEW_STDERR=$$(gcloud design-center spaces applications preview ${_APP_NAME} \
         --space=${_SPACE_NAME} \
         --project=$PROJECT_ID \
@@ -28,12 +68,16 @@ steps:
       echo "Preview command stderr:"
       echo "$$PREVIEW_STDERR"
 
-      if [ $$? -ne 0 ]; then
-        echo "Failed to start preview for application ${_APP_NAME}"
+      if echo "$$PREVIEW_STDERR" | grep -q "NOT_FOUND"; then
+        echo "ERROR: Preview failed to find application ${_APP_NAME}. Exiting."
         exit 1
+      elif echo "$$PREVIEW_STDERR" | grep -q "ERROR"; then
+         echo "ERROR: Preview command failed. Exiting."
+         exit 1
       fi
 
-      PREVIEW_LRO=$$(echo "$$PREVIEW_STDERR" | grep -o 'projects/[^ ]*' | head -n 1 | sed 's/]$$//')
+      # Extract the operation name from the stderr message
+      PREVIEW_LRO=$$(echo "$$PREVIEW_STDERR" | grep -o 'projects/[^ ]*operations/[^ ]*' | head -n 1 | sed 's/]$$//')
 
       if [ -z "$$PREVIEW_LRO" ]; then
         echo "ERROR: Could not extract operation name from preview stderr."
@@ -58,11 +102,10 @@ steps:
           continue
         fi
 
-        echo "--- Operation Status (Attempt $$COUNTER) ---"
-        echo "$$OPERATION_OUTPUT"
-        echo "---------------------------------------"
+        # echo "--- Operation Status (Attempt $$COUNTER) ---"
+        # echo "$$OPERATION_OUTPUT"
+        # echo "---------------------------------------"
 
-        # More robust check for done: true
         if echo "$$OPERATION_OUTPUT" | grep -q '"done": true'; then
           echo "Preview operation $$PREVIEW_LRO finished."
           IS_DONE="true"
@@ -76,7 +119,6 @@ steps:
 
       if [ "$$IS_DONE" != "true" ]; then
         echo "ERROR: Preview operation timed out."
-        # Print the last known status
         gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID
         exit 1
       fi
