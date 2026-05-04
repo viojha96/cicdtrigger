@@ -1,5 +1,5 @@
 substitutions:
-  _APP_NAME: 'test-application-cicd-026' # Incremented version
+  _APP_NAME: 'test-application-cicd-027' # Incremented version
   _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
   _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
@@ -46,27 +46,48 @@ steps:
 
       SERVICE_ACCOUNT_NAME="projects/$PROJECT_ID/serviceAccounts/${_DEPLOY_SA_EMAIL}"
 
-      echo "Starting Preview for application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
-      PREVIEW_LRO=$$(gcloud design-center spaces applications preview ${_APP_NAME} \
+     echo "Starting Preview for application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
+      # Capture the full output of the preview command
+      gcloud design-center spaces applications preview ${_APP_NAME} \
         --space=${_SPACE_NAME} \
         --project=$PROJECT_ID \
         --location=${_LOCATION} \
-        --service-account="$$SERVICE_ACCOUNT_NAME" \
-        --format="value(name)")
+        --service-account="$$SERVICE_ACCOUNT_NAME" > preview_output.txt 2>&1
+
+      cat preview_output.txt
 
       if [ $$? -ne 0 ]; then
         echo "Failed to start preview for application ${_APP_NAME}"
         exit 1
       fi
-      echo "Preview operation started: $$PREVIEW_LRO"
+
+      # Attempt to extract the operation name - THIS IS A GUESS, ADJUST BASED ON OUTPUT
+      PREVIEW_LRO=$$(cat preview_output.txt | grep 'operations/' | sed 's/.*"\(projects\/.*\/operations\/[^"]*\)".*/\1/' | head -n 1)
+
+      if [ -z "$$PREVIEW_LRO" ]; then
+        echo "ERROR: Could not extract operation name from preview output."
+        exit 1
+      fi
+      echo "Preview operation name: $$PREVIEW_LRO"
 
       echo "Waiting for Preview operation to complete..."
       COUNTER=0
       MAX_RETRIES=60
       SLEEP_DURATION=10
       while [ $$COUNTER -lt $$MAX_RETRIES ]; do
-        PREVIEW_STATUS=$$(gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID --format="value(done)")
-        if [ "$$PREVIEW_STATUS" = "True" ]; then
+        OPERATION_OUTPUT=$$(gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID 2>&1)
+        GCLOUD_EXIT_CODE=$$?
+
+        if [ $$GCLOUD_EXIT_CODE -ne 0 ]; then
+          echo "Error describing operation: $$OPERATION_OUTPUT"
+          echo "Retrying in $$SLEEP_DURATION seconds..."
+          sleep $$SLEEP_DURATION
+          COUNTER=$$(expr $$COUNTER + 1)
+          continue
+        fi
+
+        PREVIEW_STATUS=$$(echo "$$OPERATION_OUTPUT" | grep -o '"done": [^,]*' | cut -d' ' -f2)
+        if [ "$$PREVIEW_STATUS" = "true" ]; then
           echo "Preview operation $$PREVIEW_LRO finished."
           break
         fi
@@ -75,7 +96,7 @@ steps:
         COUNTER=$$(expr $$COUNTER + 1)
       done
 
-      if [ "$$PREVIEW_STATUS" != "True" ]; then
+      if [ "$$PREVIEW_STATUS" != "true" ]; then
         echo "ERROR: Preview operation timed out."
         gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID
         exit 1
