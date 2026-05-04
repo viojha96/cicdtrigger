@@ -9,7 +9,7 @@ substitutions:
   _FE_SERVICE_NAME: 'tt-fe-svc-1'
 
 steps:
-# 1. Build the new container image
+# 1. Build the new container image.
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', '${_IMAGE_NAME}', '--build-arg', 'IMAGE_TAG=${TAG_NAME}', '-f', 'cicd/Dockerfile', './cicd']
   id: 'BuildImage'
