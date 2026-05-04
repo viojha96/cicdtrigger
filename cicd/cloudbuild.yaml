@@ -1,19 +1,18 @@
 substitutions:
-  _APP_NAME: 'test-application-cicd-035' # Incremented version
+  _APP_NAME: 'test-application-cicd-036' # Incremented version
   _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
   _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
   _TEMPLATE_NAME: 'app-template-4'
 
 steps:
-# 1. Create, Verify, Preview, Print Assessment, and Deploy Application from Templates.
+# 1. Create, Verify, Preview, Show Result, and Deploy Application.
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: bash
   timeout: 1800s # Increased timeout to accommodate polling
   args:
     - -c
     - |
-      # ... (Create Application, Verify Application, Preview, Wait for LRO steps as before) ...
       echo "Fetching latest revision for template ${_TEMPLATE_NAME}..."
       LATEST_REVISION_URI=$$(gcloud design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
       if [ -z "$$LATEST_REVISION_URI" ]; then
@@ -120,25 +119,17 @@ steps:
         exit 1
       fi
 
+      echo "--- Final Preview Operation Status & Response ---"
       LATEST_OPERATION_OUTPUT=$$(gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID --format=json)
+      echo "$$LATEST_OPERATION_OUTPUT"
+      echo "-------------------------------------------------"
+
       PREVIEW_ERROR=$$(echo "$$LATEST_OPERATION_OUTPUT" | grep '"code":' | head -n 1)
       if [ -n "$$PREVIEW_ERROR" ]; then
-        echo "ERROR: Preview operation $$PREVIEW_LRO failed:"
-        echo "$$LATEST_OPERATION_OUTPUT"
+        echo "ERROR: Preview operation $$PREVIEW_LRO failed. See response above."
         exit 1
       fi
       echo "Preview operation successful."
-
-      echo "--- Application Assessment Report ---"
-      # Extract the assessmentReport block using sed
-      ASSESSMENT_REPORT=$$(echo "$$LATEST_OPERATION_OUTPUT" | sed -n '/"assessmentReport": {/,/^[ ]*},$$/p' | sed '$$d')
-      if [ -z "$$ASSESSMENT_REPORT" ]; then
-        echo "WARNING: Could not extract assessmentReport from operation response."
-        echo "$$LATEST_OPERATION_OUTPUT"
-      else
-        echo "$$ASSESSMENT_REPORT"
-      fi
-      echo "-------------------------------------"
 
       echo "Deploying application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
       gcloud design-center spaces applications deploy ${_APP_NAME} \
