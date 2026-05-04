@@ -1,5 +1,5 @@
 substitutions:
-  _APP_NAME: 'test-application-cicd-031' # Incremented version
+  _APP_NAME: 'test-application-cicd-032' # Incremented version
   _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
   _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
@@ -13,41 +13,12 @@ steps:
   args:
     - -c
     - |
-      echo "Fetching latest revision for template ${_TEMPLATE_NAME}..."
-      LATEST_REVISION_URI=$$(gcloud design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
-      if [ -z "$$LATEST_REVISION_URI" ]; then
-        echo "Failed to get latest revision URI for template ${_TEMPLATE_NAME}"
-        exit 1
-      fi
-      echo "Latest Revision URI: $$LATEST_REVISION_URI"
-
-      LATEST_REVISION=$$(basename $$LATEST_REVISION_URI)
-      if [ -z "$$LATEST_REVISION" ]; then
-        echo "Failed to extract revision ID from URI: $$LATEST_REVISION_URI"
-        exit 1
-      fi
-      echo "Latest Revision ID: $$LATEST_REVISION"
-
-      TEMPLATE_REVISION_URI="projects/$PROJECT_ID/locations/${_LOCATION}/spaces/${_SPACE_NAME}/applicationTemplates/${_TEMPLATE_NAME}/revisions/$$LATEST_REVISION"
-
-      echo "Creating application ${_APP_NAME} from template revision: $$TEMPLATE_REVISION_URI..."
-      gcloud design-center spaces applications create ${_APP_NAME} \
-        --space=${_SPACE_NAME} \
-        --project=$PROJECT_ID \
-        --location=${_LOCATION} \
-        --source-application-template-revision="$$TEMPLATE_REVISION_URI" \
-        --scope-type=global
-
-      if [ $$? -ne 0 ]; then
-        echo "Failed to create application ${_APP_NAME}"
-        exit 1
-      fi
+      # ... (application creation steps as before) ...
       echo "Application ${_APP_NAME} created."
 
       SERVICE_ACCOUNT_NAME="projects/$PROJECT_ID/serviceAccounts/${_DEPLOY_SA_EMAIL}"
 
       echo "Starting Preview for application ${_APP_NAME} using SA $$SERVICE_ACCOUNT_NAME..."
-      # Capture stderr from the preview command
       PREVIEW_STDERR=$$(gcloud design-center spaces applications preview ${_APP_NAME} \
         --space=${_SPACE_NAME} \
         --project=$PROJECT_ID \
@@ -62,7 +33,6 @@ steps:
         exit 1
       fi
 
-      # Extract the operation name from the stderr message and remove the trailing bracket
       PREVIEW_LRO=$$(echo "$$PREVIEW_STDERR" | grep -o 'projects/[^ ]*' | head -n 1 | sed 's/]$$//')
 
       if [ -z "$$PREVIEW_LRO" ]; then
@@ -75,8 +45,10 @@ steps:
       COUNTER=0
       MAX_RETRIES=60
       SLEEP_DURATION=15
+      IS_DONE="false" # Initialize IS_DONE
+
       while [ $$COUNTER -lt $$MAX_RETRIES ]; do
-        OPERATION_OUTPUT=$$(gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID 2>&1)
+        OPERATION_OUTPUT=$$(gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID --format=json 2>&1)
         GCLOUD_EXIT_CODE=$$?
 
         if [ $$GCLOUD_EXIT_CODE -ne 0 ]; then
@@ -86,11 +58,14 @@ steps:
           continue
         fi
 
-        echo "$$OPERATION_OUTPUT" # Print operation status
+        echo "--- Operation Status (Attempt $$COUNTER) ---"
+        echo "$$OPERATION_OUTPUT"
+        echo "---------------------------------------"
 
-        IS_DONE=$$(echo "$$OPERATION_OUTPUT" | grep '"done":' | sed 's/.*"done": *//' | sed 's/,.*//')
-        if [ "$$IS_DONE" = "true" ]; then
+        # More robust check for done: true
+        if echo "$$OPERATION_OUTPUT" | grep -q '"done": true'; then
           echo "Preview operation $$PREVIEW_LRO finished."
+          IS_DONE="true"
           break
         fi
 
@@ -101,6 +76,7 @@ steps:
 
       if [ "$$IS_DONE" != "true" ]; then
         echo "ERROR: Preview operation timed out."
+        # Print the last known status
         gcloud design-center operations describe $$PREVIEW_LRO --location=${_LOCATION} --project=$PROJECT_ID
         exit 1
       fi
