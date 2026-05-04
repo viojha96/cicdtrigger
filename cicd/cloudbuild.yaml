@@ -1,5 +1,5 @@
 substitutions:
-  _APP_NAME: 'test-application-cicd-022'
+  _APP_NAME: 'test-application-cicd-023'
   _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
   _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
@@ -12,63 +12,15 @@ steps:
   args:
     - -c
     - |
-      # LATEST_REVISION_URI=$(gcloud alpha design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
-      # if [ -z "$$LATEST_REVISION_URI" ]; then
-      #   echo "Failed to get latest revision URI for template ${_TEMPLATE_NAME}"
-      #   exit 1
-      # fi
-      # echo "Latest Revision URI: $$LATEST_REVISION_URI"
-
-      # # Extract the revision ID from the full URI
-      # LATEST_REVISION=$(basename $$LATEST_REVISION_URI)
-      # if [ -z "$$LATEST_REVISION" ]; then
-      #   echo "Failed to extract revision ID from URI: $$LATEST_REVISION_URI"
-      #   exit 1
-      # fi
-      # echo "Latest Revision ID: $$LATEST_REVISION"
-            # Attempt to get the latest revision URI, capturing stderr
-            echo "--- gcloud info ---"
-      gcloud info
-      echo "--- gcloud config list ---"
-      gcloud config list
-      echo "--------------------"
-
-      echo "Listing all application templates in space ${_SPACE_NAME}..."
-      gcloud design-center spaces application-templates list --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} || echo "List command failed"
-      echo "--------------------"
-
-      echo "Fetching latest revision for template ${_TEMPLATE_NAME} in Project ${PROJECT_ID}..."
-
-      # Capture stdout to a file, stderr to a file
-      gcloud design-center spaces application-templates describe ${_TEMPLATE_NAME} \
-        --space=${_SPACE_NAME} \
-        --project=$PROJECT_ID \
-        --location=${_LOCATION} \
-        --format="value(latestRevision)" > stdout.txt 2> stderr.txt
-      GCLOUD_EXIT_CODE=$$?
-
-      echo "gcloud exit code: $$GCLOUD_EXIT_CODE"
-
-      echo "--- stdout.txt ---"
-      cat stdout.txt
-      echo "--- stderr.txt ---"
-      cat stderr.txt
-      echo "--------------------"
-
-      if [ $$GCLOUD_EXIT_CODE -ne 0 ]; then
-        echo "ERROR: gcloud describe command failed"
-        exit 1
-      fi
-
-      LATEST_REVISION_URI=$$(cat stdout.txt | sed 's/^[[:space:]]*//;s/[[:space:]]*$$//')
-
+      LATEST_REVISION_URI=$(gcloud alpha design-center spaces application-templates describe ${_TEMPLATE_NAME} --space=${_SPACE_NAME} --project=$PROJECT_ID --location=${_LOCATION} --format="value(latestRevision)")
       if [ -z "$$LATEST_REVISION_URI" ]; then
-        echo "Failed to get latest revision URI for template ${_TEMPLATE_NAME}. Output was empty."
+        echo "Failed to get latest revision URI for template ${_TEMPLATE_NAME}"
         exit 1
       fi
       echo "Latest Revision URI: $$LATEST_REVISION_URI"
 
-      LATEST_REVISION=$$(basename $$LATEST_REVISION_URI)
+      # Extract the revision ID from the full URI
+      LATEST_REVISION=$(basename $$LATEST_REVISION_URI)
       if [ -z "$$LATEST_REVISION" ]; then
         echo "Failed to extract revision ID from URI: $$LATEST_REVISION_URI"
         exit 1
