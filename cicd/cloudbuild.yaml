@@ -1,23 +1,23 @@
 substitutions:
-  _APP_NAME: 'test-application-cicd-040' # Incremented version
+  _APP_NAME: 'test-application-cicd-041' # Incremented version
   _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
   _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
   _TEMPLATE_NAME: 'app-template-4'
-  TAG_NAME: 'latest' # Added TAG_NAME for the image
+  TAG_NAME: 'latest'
   _IMAGE_NAME: 'gcr.io/${PROJECT_ID}/adc-cicd/adc-cr-demo:${TAG_NAME}'
-  _FE_SERVICE_NAME: 'tt-fe-svc-1' # Service name to update
+  _FE_SERVICE_NAME: 'tt-fe-svc-1'
 
 steps:
 # 1. Build the new container image
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', '${_IMAGE_NAME}', '--build-arg', 'IMAGE_TAG=${TAG_NAME}', '-f', 'adc-cr-demo/Dockerfile', '.']
+  args: ['build', '-t', '${_IMAGE_NAME}', '--build-arg', 'IMAGE_TAG=${TAG_NAME}', '-f', 'cicd/Dockerfile', './cicd']
   id: 'BuildImage'
 
 # 2. Create Application, Update Image, Preview, and Deploy.
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: bash
-  timeout: 1800s # Increased timeout to accommodate polling
+  timeout: 1800s
   id: 'CreateUpdatePreviewDeploy'
   args:
     - -c
