@@ -11,7 +11,7 @@ ENV APP_IMAGE_TAG=${IMAGE_TAG}
 # Set the working directory in the container
 WORKDIR /app
 
-COPY cicd/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copy the current directory contents into the container at /app
 COPY cicd/main.py /app/main.py
