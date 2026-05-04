@@ -3,7 +3,7 @@ substitutions:
   _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
   _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
-  _TEMPLATE_NAME: 'tt-tmpl-demo'
+  _TEMPLATE_NAME: 'app-template-1'
 
 steps:
 # 1. Create and Deploy Application from Templates.
