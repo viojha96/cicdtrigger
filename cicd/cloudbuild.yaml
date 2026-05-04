@@ -1,8 +1,8 @@
 substitutions:
   _APP_NAME: 'test-application-cicd-022'
-  _SPACE_NAME: 'managed-space'
+  _SPACE_NAME: 'default-space'
   _LOCATION: 'us-central1'
-  _DEPLOY_SA_EMAIL: 'to-deploy-us-c1@google-mpf-92896903834.iam.gserviceaccount.com'
+  _DEPLOY_SA_EMAIL: 'testappli-us-c1@test-prj-492905.iam.gserviceaccount.com'
   _TEMPLATE_NAME: 'tt-tmpl-demo'
 
 steps:
